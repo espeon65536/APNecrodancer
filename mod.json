@@ -1,5 +1,12 @@
 {
-    "version": "0.1",
-    "displayName": "Archipelago",
-    "name": "archipelago"
+	"name": "archipelago",
+	"displayName": "Archipelago",
+	"version": "0.1.0",
+	"synchronyVersion": "0.54",
+	"description": "Synchrony integration with Archipelago. More information at https://archipelago.gg/",
+	"author": "Espeon",
+	"dependencies": {},
+	"api": {"scriptPath":""},
+	"icon": "gfx/icon.png",
+	"tags": []
 }
