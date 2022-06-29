@@ -76,7 +76,7 @@ function giveItem(entity, item_name)
 end
 
 function getPlayerOne()
-    for entity in ecs.entitiesWithComponents {"playableCharacter"} do
+    for entity in ecs.entitiesWithComponents {"controllable"} do
         if entity.controllable.playerID == 1 then
             return entity
         end
@@ -96,6 +96,7 @@ function getAvailableChars()
 end
 
 function APLog(type, char)
+    if char == 'NocturnaBat' then char = 'Nocturna' end
     log.info("%i %s %s %s", nonce, type, char, currentLevel.getName())
 end
 
@@ -112,6 +113,7 @@ customEntities.extend {
         sprite = {
             texture = "mods/archipelago/gfx/ap.png",
         },
+        itemDestructible = true,
     },
 }
 
@@ -123,8 +125,9 @@ event.inventoryCollectItem.add("logAPItem", {order="flyaway"}, function (ev)
 end)
 
 -- Send completion of floors to the log file
-event.levelComplete.add("logFloorClear", {order="nextLevel"}, function (ev)
-    APLog('Clear', getPlayerOne().name)
+event.levelComplete.add("logFloorClear", {order="dad"}, function (ev)
+    local entity = getPlayerOne()
+    APLog('Clear', entity.name)
 end)
 
 -- Update checklist and item banlist on level load
@@ -194,6 +197,20 @@ event.objectCheckAbility.add("giveItems", {order="beatDelayBypass"}, function (e
     end
 end)
 
+event.objectCheckAbility.add("deathlink", {order="beatDelayBypass"}, function (ev)
+    if deathlink_pending then
+        for entity in ecs.entitiesWithComponents {"playableCharacter"} do
+            damage.inflict({
+                victim=entity,
+                damage=100,
+                type=16455,
+                killerName='Deathlink',
+            })
+        end
+        deathlink_pending = false
+    end
+end)
+
 -- Restrict character usage. In dev we don't need this active as it gets in the way.
 if not dev then
     -- Print message in chat for non-allowed chars
@@ -247,46 +264,37 @@ event.objectDeath.add("handlePlayerDeath", {order="runSummary", filter="controll
                 killerName='Deathlink',
             })
         end
+        dbg(ev)
         -- Log the deathlink
-        if ev.killer.name ~= 'Deathlink' and ev.killer.name ~= 'Character Not Unlocked' then
-            dbg(ev.killer)
-            APLog('Death', ev.killer.name)
+        if ev.killerName ~= 'Deathlink' and ev.killerName ~= 'Character Not Unlocked' then
+            APLog('Death', ev.killerName)
         end
     end
 end)
 
 -- ipc listener
-ipc.listen(function (msg)
-    msg = json.decode(msg)
-    itemState = msg['item_state']
-    characters = msg['characters']
-    consumables = msg['consumables']
-    replaceChests = msg['replace_chests']
-    replaceFlawlessChests = msg['flawless']
-    deathlink_enabled = msg['deathlink_enabled']
-    deathlink_pending = msg['deathlink_pending']
+if hasIpc then
+    ipc.listen(function (msg)
+        msg = json.decode(msg)
+        itemState = msg['item_state']
+        characters = msg['characters']
+        consumables = msg['consumables']
+        replaceChests = msg['replace_chests']
+        replaceFlawlessChests = msg['flawless']
+        deathlink_enabled = msg['deathlink_enabled']
+        deathlink_pending = msg['deathlink_pending']
 
-    if nonce ~= msg['nonce'] then
-        nonce = msg['nonce']
-        if currentLevel.isLobby() then
-            chat.openChatbox()
-            chat.print("Connected to the Archipelago client. Available characters:")
-            chat.print(getAvailableChars())
+        if nonce ~= msg['nonce'] then
+            nonce = msg['nonce']
+            if currentLevel.isLobby() then
+                chat.openChatbox()
+                chat.print("Connected to the Archipelago client. Available characters:")
+                chat.print(getAvailableChars())
+            end
         end
-    end
-
-    if deathlink_pending then
-        for entity in ecs.entitiesWithComponents {"playableCharacter"} do
-            damage.inflict({
-                victim=entity,
-                damage=100,
-                type=16455,
-                killerName='Deathlink',
-            })
-        end
-        deathlink_pending = false
-    end
-end)
+    end)
+else
+end
 
 if dev then
 
@@ -296,15 +304,15 @@ if dev then
         end
     end)
 
-    -- event.levelLoad.add("stuff", {order="music"}, function (ev)
-    --     for entity in ecs.entitiesWithComponents {"playableCharacter"} do
-    --         trapScripts.fullHeal(entity)
-    --         -- print(inventory.getItems(entity))
-    --         for _, item in ipairs(inventory.getItems(entity)) do
-    --             -- print(item)
-    --         end
-    --     end
-    -- end)
+    event.levelLoad.add("stuff", {order="music"}, function (ev)
+        for entity in ecs.entitiesWithComponents {"playableCharacter"} do
+            -- trapScripts.fullHeal(entity)
+            print(inventory.getItems(entity))
+            for _, item in ipairs(inventory.getItems(entity)) do
+                print(item)
+            end
+        end
+    end)
 
     -- event.soundPlay.add("debug", {order="soundGroup"}, function (ev)
     --     dbg(ev)
