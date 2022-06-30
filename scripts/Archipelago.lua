@@ -203,7 +203,7 @@ event.objectCheckAbility.add("deathlink", {order="beatDelayBypass"}, function (e
             damage.inflict({
                 victim=entity,
                 damage=100,
-                type=16455,
+                type=damage.Type.SUICIDE,
                 killerName='Deathlink',
             })
         end
@@ -213,15 +213,6 @@ end)
 
 -- Restrict character usage. In dev we don't need this active as it gets in the way.
 if not dev then
-    -- Print message in chat for non-allowed chars
-    -- event.objectSpawn.add("checkCharacter", {order="overrides", filter="playableCharacter"}, function (ev)
-    --     local name = ev.entity.name
-    --     if not inList(name, characters) and currentLevel.isLobby() then
-    --         chat.openChatbox()
-    --         chat.print(name .. " is not yet unlocked! You will be killed upon starting a run.")
-    --     end
-    -- end)
-
     -- Show allowed characters on lobby load
     event.levelLoad.add("showAvailableChars", {order="music"}, function (ev)
         if currentLevel.isLobby() then
@@ -264,7 +255,6 @@ event.objectDeath.add("handlePlayerDeath", {order="runSummary", filter="controll
                 killerName='Deathlink',
             })
         end
-        dbg(ev)
         -- Log the deathlink
         if ev.killerName ~= 'Deathlink' and ev.killerName ~= 'Character Not Unlocked' then
             APLog('Death', ev.killerName)
@@ -294,6 +284,8 @@ if hasIpc then
         end
     end)
 else
+    chat.openChatbox()
+    chat.print("IPC not enabled. In config.json, please enable IPC and whitelist the system.network.IPC script.")
 end
 
 if dev then
