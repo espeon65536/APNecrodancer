@@ -20,6 +20,7 @@ local trapScripts = {}
 function trapScripts.instantHealth(entity)
     Health.heal({
         entity=entity,
+        health=2,
     })
     Particle.play(entity, 'particlePuff')
     Flyaway.create({
