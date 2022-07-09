@@ -158,7 +158,8 @@ function APLog(type, char)
     if not hasStorage then return end
     if not isAllZones() then return end
     if char == 'NocturnaBat' then char = 'Nocturna' end
-    outfile_data = outfile_data .. '\n' .. string.format("%s %i %s %s %s", gameclient.getMessageTimestamp(), nonce, type, char, currentLevel.getName())
+    local levelName = currentLevel.getZone() .. '-' .. currentLevel.getFloor()
+    outfile_data = outfile_data .. '\n' .. string.format("%s %i %s %s %s", gameclient.getMessageTimestamp(), nonce, type, char, levelName)
     apStorage.writeFile(outfile, outfile_data)
 end
 
@@ -178,7 +179,7 @@ customEntities.extend {
         sprite = {
             texture = "mods/archipelago/gfx/ap.png",
         },
-        itemDestructible = true,
+        itemDestructible = false,
     },
 }
 
@@ -194,8 +195,9 @@ event.pickupEffects.add("logAPItem", {order="animation"}, function (ev)
 end)
 
 -- Send completion of floors to the log file
-event.levelComplete.add("logFloorClear", {order="dad"}, function (ev)
-    if not isAllZones() then return end
+-- CHANGE TO ONLY WINSCREEN
+event.levelComplete.add("logFloorClear", {order="winScreen"}, function (ev)
+    if not (isAllZones() and instantreplay.isActive()) then return end
     APLog('Clear', getPlayerOne().name)
 end)
 
