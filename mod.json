@@ -1,7 +1,7 @@
 {
 	"name": "archipelago",
 	"displayName": "Archipelago",
-	"version": "0.1.2",
+	"version": "1.0.0",
 	"synchronyVersion": "0.54",
 	"description": "Synchrony integration with Archipelago. More information at https://archipelago.gg/",
 	"author": "Espeon",
