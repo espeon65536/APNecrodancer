@@ -37,6 +37,8 @@ local characters = {}
 local consumables = {}
 local replaceChests = {}
 local replaceFlawlessChests = false
+local keepInventory = false
+local savedInventory = {}
 local deathlink_enabled = false
 local deathlink_pending = false
 
@@ -139,6 +141,7 @@ event.objectCheckAbility.add("readInfile", {order="beatDelayBypass"}, function (
         consumables = msg['consumables']
         replaceChests = msg['replace_chests']
         replaceFlawlessChests = msg['flawless']
+        keepInventory = msg['keep_inventory']
         deathlink_enabled = msg['deathlink_enabled']
         deathlink_pending = msg['deathlink_pending']
 
@@ -156,7 +159,7 @@ end)
 -- Write info to the outfile
 function APLog(type, char)
     if not hasStorage then return end
-    if not isAllZones() then return end
+    if not (isAllZones() or currentLevel.isLobby()) then return end
     if char == 'NocturnaBat' then char = 'Nocturna' end
     local levelName = currentLevel.getZone() .. '-' .. currentLevel.getFloor()
     outfile_data = outfile_data .. '\n' .. string.format("%s %i %s %s %s", gameclient.getMessageTimestamp(), nonce, type, char, levelName)
@@ -195,7 +198,6 @@ event.pickupEffects.add("logAPItem", {order="animation"}, function (ev)
 end)
 
 -- Send completion of floors to the log file
--- CHANGE TO ONLY WINSCREEN
 event.levelComplete.add("logFloorClear", {order="winScreen"}, function (ev)
     if not (isAllZones() and instantreplay.isActive()) then return end
     APLog('Clear', getPlayerOne().name)
@@ -301,6 +303,39 @@ if not dev then
         end
     end)
 end
+
+-----------------------------------
+-- Keep-Inventory Implementation --
+-----------------------------------
+
+event.objectDeath.add("keepInventory", {order="runSummary", filter="controllable"}, function (ev)
+    if not keepInventory or not isAllZones() or instantreplay.isActive() or ev.entity.controllable.playerID == 0 then return end
+    local inv = ev.entity.inventory.itemSlots
+    savedInventory = {
+        character=ev.entity.name
+    }
+    -- there is 100% a better way to do this but I'm not a good enough Lua programmer to figure it out
+    if inv.shovel then savedInventory.shovel = ecs.getEntityByID(inv.shovel[1]).name end
+    if inv.weapon then savedInventory.weapon = ecs.getEntityByID(inv.weapon[1]).name end
+    if inv.head then savedInventory.head = ecs.getEntityByID(inv.head[1]).name end
+    if inv.body then savedInventory.body = ecs.getEntityByID(inv.body[1]).name end
+    if inv.feet then savedInventory.feet = ecs.getEntityByID(inv.feet[1]).name end
+    if inv.torch then savedInventory.torch = ecs.getEntityByID(inv.torch[1]).name end
+    if inv.ring then savedInventory.ring = ecs.getEntityByID(inv.ring[1]).name end
+end)
+
+event.levelLoad.add("restoreInventory", {order="music"}, function (ev)
+    if not keepInventory or not isAllZones() then return end
+    local char = getPlayerOne()
+    if savedInventory.character == char.name then
+        for slot, item in pairs(savedInventory) do
+            if slot ~= 'character' and item ~= nil then
+                giveItem(char, item)
+            end
+        end
+    end
+    savedInventory = {}
+end)
 
 ------------------------------
 -- Deathlink Implementation --
