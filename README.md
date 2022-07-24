@@ -1,2 +1,2 @@
 # APNecrodancer
-Synchrony mod for Archipelago integration
+Crypt of the NecroDancer v3.0 mod for [Archipelago](https://archipelago.gg/) integration
