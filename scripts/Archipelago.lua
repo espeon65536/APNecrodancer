@@ -246,9 +246,10 @@ event.bossFightEnd.add("replaceBossChests", {order="flawlessChests", sequence=1}
     if not isAllZones() then return end
     local char = getPlayerOne().name
     local floor = currentLevel.getName()
-    local chestAPName = char .. ' ' .. floor
+    local chestAPName = char .. ' ' .. currentLevel.getZone() .. '-' .. currentLevel.getFloor()
+    print(chestAPName)
     if replaceFlawlessChests and inList(chestAPName, replaceChests) then
-        for entity in ecs.entitiesWithComponents {"storageGenerateItemPool"} do
+        for entity in ecs.entitiesWithComponents {"storage"} do
             replaceChest(entity)
         end
     end
