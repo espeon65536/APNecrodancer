@@ -37,7 +37,7 @@ local characters = {}
 local consumables = {}
 local replaceChests = {}
 local replaceFlawlessChests = false
-local keepInventory = false
+local keepInventory = true
 local savedInventory = {}
 local deathlink_enabled = false
 local deathlink_pending = false
@@ -102,13 +102,19 @@ end
 function getAvailableChars()
     local char_str = ''
     for i, char in ipairs(characters) do
-        char_str = char_str .. char
+        char_str = char_str .. stripModName(char)
         if i ~= len(characters) then
             char_str = char_str .. ', '
         end
     end
     if char_str == '' then return 'None, connect to server' end
     return char_str
+end
+
+function stripModName(name)
+    local pattern = "^%w+_"  -- match a mod namespace at the start of a name"
+    local base_name = name:gsub(pattern, '')
+    return base_name
 end
 
 ----------------------------
@@ -124,7 +130,7 @@ end
 
 -- Yell at player if storage module isn't available
 event.levelLoad.add("storageChatMsg", {order="currentLevel"}, function (ev)
-    if not hasStorage then
+    if not hasStorage and not dev then
         chat.openChatbox()
         chat.print("Storage not enabled. In config.json, please whitelist the system.file.Storage script.")
     end
@@ -162,7 +168,7 @@ function APLog(type, char)
     if not (isAllZones() or currentLevel.isLobby()) then return end
     if char == 'NocturnaBat' then char = 'Nocturna' end
     local levelName = currentLevel.getZone() .. '-' .. currentLevel.getFloor()
-    outfile_data = outfile_data .. '\n' .. string.format("%s %i %s %s %s", gameclient.getMessageTimestamp(), nonce, type, char, levelName)
+    outfile_data = outfile_data .. '\n' .. string.format("%s %i %s %s %s", gameclient.getMessageTimestamp(), nonce, type, stripModName(char), levelName)
     apStorage.writeFile(outfile, outfile_data)
 end
 
@@ -182,7 +188,7 @@ customEntities.extend {
         sprite = {
             texture = "mods/archipelago/gfx/ap.png",
         },
-        itemDestructible = false,
+        itemDestructible = {},
     },
 }
 
@@ -191,9 +197,22 @@ customEntities.extend {
 -----------------------
 
 -- Send collection of AP item to the log file
-event.pickupEffects.add("logAPItem", {order="animation"}, function (ev)
-    if ev.item.name == "archipelago_APItem" and isAllZones() then
+event.inventoryCollectItem.add("logAPItem", {order="consume"}, function (ev)
+    if ev.item.name == "archipelago_APItem" and isAllZones() and not instantreplay.isActive() then
         APLog('Item', ev.holder.name)
+    end
+end)
+
+event.levelComplete.add("wipeAPItem", {order="nextLevel"}, function(ev)
+    local item
+    for entity in ecs.entitiesWithComponents {"playableCharacter"} do
+        for _, id in ipairs(entity.inventory.items) do
+            item = ecs.getEntityByID(id)
+            if item.name == 'archipelago_APItem' then
+                object.delete(item)
+                break
+            end
+        end
     end
 end)
 
@@ -231,7 +250,7 @@ event.levelLoad.add("replaceLevelChests", {order="initialItems", sequence=1}, fu
     if not isAllZones() then return end
     for entity in ecs.entitiesWithComponents {"storageGenerateItemPool"} do
         if entity.name ~= "Trapchest6" and (entity.sale == nil or entity.sale.priceTag == 0) then
-            local char = getPlayerOne().name
+            local char = stripModName(getPlayerOne().name)
             local floor = currentLevel.getName()
             local chestAPName = char .. ' ' .. floor
             if inList(chestAPName, replaceChests) then
@@ -244,7 +263,7 @@ end)
 -- Replace flawless chests
 event.bossFightEnd.add("replaceBossChests", {order="flawlessChests", sequence=1}, function (ev)
     if not isAllZones() then return end
-    local char = getPlayerOne().name
+    local char = stripModName(getPlayerOne().name)
     local floor = currentLevel.getName()
     local chestAPName = char .. ' ' .. currentLevel.getZone() .. '-' .. currentLevel.getFloor()
     if replaceFlawlessChests and inList(chestAPName, replaceChests) then
@@ -292,7 +311,7 @@ if not dev then
     -- Kill non-allowed chars on starting a run
     event.levelLoad.add("killBannedChars", {order="music"}, function (ev)
         for entity in ecs.entitiesWithComponents {"playableCharacter"} do
-            if not inList(entity.name, characters) and not currentLevel.isLobby() then
+            if not inList(stripModName(entity.name), characters) and not currentLevel.isLobby() then
                 damage.inflict({
                     victim=entity,
                     damage=100,
@@ -314,14 +333,10 @@ event.objectDeath.add("keepInventory", {order="runSummary", filter="controllable
     savedInventory = {
         character=ev.entity.name
     }
-    -- there is 100% a better way to do this but I'm not a good enough Lua programmer to figure it out
-    if inv.shovel then savedInventory.shovel = ecs.getEntityByID(inv.shovel[1]).name end
-    if inv.weapon then savedInventory.weapon = ecs.getEntityByID(inv.weapon[1]).name end
-    if inv.head then savedInventory.head = ecs.getEntityByID(inv.head[1]).name end
-    if inv.body then savedInventory.body = ecs.getEntityByID(inv.body[1]).name end
-    if inv.feet then savedInventory.feet = ecs.getEntityByID(inv.feet[1]).name end
-    if inv.torch then savedInventory.torch = ecs.getEntityByID(inv.torch[1]).name end
-    if inv.ring then savedInventory.ring = ecs.getEntityByID(inv.ring[1]).name end
+    if ev.entity.name == 'NocturnaBat' then savedInventory.character = 'Nocturna' end -- nocturna is stupid
+    for k, v in pairs(inv) do
+        if v[1] ~= nil then savedInventory[k] = ecs.getEntityByID(v[1]).name end
+    end
 end)
 
 event.levelLoad.add("restoreInventory", {order="music"}, function (ev)
